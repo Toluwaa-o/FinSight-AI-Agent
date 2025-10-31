@@ -1,4 +1,5 @@
 import os
+import httpx
 from fastapi import FastAPI, Request
 from datetime import datetime
 from fastapi.responses import JSONResponse
@@ -59,7 +60,7 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
                 params.configuration.blocking = True
             else:
                 params.configuration = MessageConfiguration(blocking=True)
-                
+
             print(f"params: {params}")
             message = params.message
             message_id = message.messageId
@@ -140,6 +141,19 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
             artifacts=[],
             history=convert_history_to_a2a(history)
         )
+
+        if hasattr(params.configuration, "pushNotificationConfig") and params.configuration.pushNotificationConfig:
+            webhook_url = params.configuration.pushNotificationConfig.url
+            if webhook_url:
+                async with httpx.AsyncClient() as client:
+                    try:
+                        await client.post(webhook_url, json=JSONRPCResponse(
+                            id=rpc_request.id,
+                            result=task_result
+                        ), timeout=10)
+                        print(f"Sent result to Telex webhook: {webhook_url}")
+                    except Exception as e:
+                        print(f"Failed to notify Telex: {e}")
 
         return JSONRPCResponse(
             id=rpc_request.id,
