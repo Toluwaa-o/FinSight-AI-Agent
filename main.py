@@ -2,9 +2,19 @@ import os
 from fastapi import FastAPI, Request
 from datetime import datetime
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 from dotenv import load_dotenv
 from utils.agent import FinancialAgent
+from utils.models import (
+    JSONRPCRequest,
+    JSONRPCResponse,
+    TaskResult,
+    TaskStatus,
+    A2AMessage,
+    MessagePart,
+    MessageParams,
+    ExecuteParams
+)
+from uuid import uuid4
 
 load_dotenv()
 
@@ -17,23 +27,9 @@ app = FastAPI(
 )
 
 
-class JSONRPCRequest(BaseModel):
-    jsonrpc: str
-    id: str
-    method: str
-    params: dict
-
-
-class JSONRPCResponse(BaseModel):
-    jsonrpc: str = "2.0"
-    id: str
-    result: dict = None
-    error: dict = None
-
-
 @app.get("/")
 def check_server():
-    return {"msg": "Server running. Use /a2a/financial to call the A2A endpoint."}
+    return {"msg": "Server running. Use POST / for A2A protocol."}
 
 
 @app.get("/health")
@@ -42,91 +38,118 @@ def health_check():
 
 
 @app.post("/a2a/financial")
-async def a2a_endpoint(request: Request):
+async def a2a_endpoint(rpc_request: JSONRPCRequest):
+    """A2A protocol endpoint following JSON-RPC 2.0 specification"""
     try:
-        body = await request.json()
-
-        # Validate JSON-RPC format
-        if body.get("jsonrpc") != "2.0" or "id" not in body:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "jsonrpc": "2.0",
-                    "id": body.get("id"),
-                    "error": {
-                        "code": -32600,
-                        "message": "Invalid Request: jsonrpc must be '2.0' and id is required"
-                    }
+        user_input = None
+        task_id = None
+        context_id = None
+        message_id = None
+        
+        if rpc_request.method == "message/send":
+            if not isinstance(rpc_request.params, MessageParams):
+                params = MessageParams(**rpc_request.params)
+            else:
+                params = rpc_request.params
+            
+            message = params.message
+            message_id = message.messageId
+            task_id = message.taskId or str(uuid4())
+            
+            for part in message.parts:
+                if part.kind == "text" and part.text:
+                    user_input = part.text
+                    break
+        
+        elif rpc_request.method == "execute":
+            if not isinstance(rpc_request.params, ExecuteParams):
+                params = ExecuteParams(**rpc_request.params)
+            else:
+                params = rpc_request.params
+            
+            task_id = params.taskId or str(uuid4())
+            context_id = params.contextId or str(uuid4())
+            
+            if params.messages:
+                last_message = params.messages[-1]
+                for part in last_message.parts:
+                    if part.kind == "text" and part.text:
+                        user_input = part.text
+                        break
+        
+        else:
+            return JSONRPCResponse(
+                id=rpc_request.id,
+                error={
+                    "code": -32601,
+                    "message": f"Method not found: {rpc_request.method}"
                 }
             )
 
-        rpc_request = JSONRPCRequest(**body)
-
-        user_input = None
-        message_id = None
-        task_id = None
-        
-        if rpc_request.method == "message/send":
-            message = rpc_request.params.get("message", {})
-            parts = message.get("parts", [])
-            message_id = message.get("messageId", f"msg-{datetime.utcnow().timestamp()}")
-            task_id = message.get("taskId", f"task-{datetime.utcnow().timestamp()}")
-            
-            if parts and parts[0].get("kind") == "text":
-                user_input = parts[0].get("text")
-        elif rpc_request.method == "execute":
-            user_input = rpc_request.params.get("input")
-            task_id = rpc_request.params.get("taskId", f"task-{datetime.utcnow().timestamp()}")
-
         if not user_input:
-            raise ValueError(
-                "Missing 'input' or 'message.parts[0].text' in params")
+            return JSONRPCResponse(
+                id=rpc_request.id,
+                error={
+                    "code": -32602,
+                    "message": "Invalid params: No text input found in message"
+                }
+            )
 
         result_text = await agent.process_messages(user_input)
-
-        # Generate context ID (you might want to manage this persistently)
-        context_id = f"context-{datetime.utcnow().timestamp()}"
         
-        response = {
-            "jsonrpc": "2.0",
-            "id": rpc_request.id,
-            "result": {
-                "id": task_id,
-                "contextId": context_id,
-                "status": {
-                    "state": "completed",  # or "input-required" if you need more user input
-                    "timestamp": datetime.utcnow().isoformat() + "Z",
-                    "message": {
-                        "messageId": f"msg-response-{datetime.utcnow().timestamp()}",
-                        "role": "agent",
-                        "parts": [
-                            {
-                                "kind": "text",
-                                "text": result_text
-                            }
-                        ],
-                        "kind": "message",
-                        "taskId": task_id
-                    }
-                },
-                "artifacts": [],  # Add artifacts here if you have any (charts, files, etc.)
-                "history": [],    # Add conversation history if you're tracking it
-                "kind": "task"
-            }
-        }
-
-        return JSONResponse(content=response)
-
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={
-                "jsonrpc": "2.0",
-                "id": body.get("id") if "body" in locals() else None,
-                "error": {
+        if isinstance(result_text, dict) and "error" in result_text:
+            return JSONRPCResponse(
+                id=rpc_request.id,
+                error={
                     "code": -32603,
-                    "message": "Internal error",
-                    "data": {"details": str(e)}
+                    "message": "Agent processing error",
+                    "data": result_text
                 }
+            )
+
+        # Generate IDs if not provided
+        context_id = context_id or str(uuid4())
+        task_id = task_id or str(uuid4())
+        
+        # Create response message
+        response_message = A2AMessage(
+            role="agent",
+            parts=[MessagePart(kind="text", text=str(result_text))],
+            taskId=task_id
+        )
+        
+        # Create task result
+        task_result = TaskResult(
+            id=task_id,
+            contextId=context_id,
+            status=TaskStatus(
+                state="completed",
+                message=response_message
+            ),
+            artifacts=[],
+            history=[]
+        )
+        
+        return JSONRPCResponse(
+            id=rpc_request.id,
+            result=task_result
+        )
+
+    except ValueError as e:
+        return JSONRPCResponse(
+            id=rpc_request.id if hasattr(rpc_request, 'id') else "unknown",
+            error={
+                "code": -32602,
+                "message": "Invalid params",
+                "data": {"details": str(e)}
+            }
+        )
+    except Exception as e:
+        return JSONRPCResponse(
+            id=rpc_request.id if hasattr(rpc_request, 'id') else "unknown",
+            error={
+                "code": -32603,
+                "message": "Internal error",
+                "data": {"details": str(e)}
             }
         )

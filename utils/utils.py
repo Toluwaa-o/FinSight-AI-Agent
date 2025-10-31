@@ -155,7 +155,6 @@ def chat(client, model, message, history):
                     {"role": "assistant", "content": assistant_message.content}
                 )
 
-                print("\nTask complete.\n")
                 return assistant_message.content
 
     except Exception as e:
