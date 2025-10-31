@@ -145,12 +145,14 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
         if hasattr(params.configuration, "pushNotificationConfig") and params.configuration.pushNotificationConfig:
             webhook_url = params.configuration.pushNotificationConfig.url
             if webhook_url:
+                response_payload = JSONRPCResponse(
+                    id=rpc_request.id,
+                    result=task_result
+                ).model_dump()
+
                 async with httpx.AsyncClient() as client:
                     try:
-                        await client.post(webhook_url, json=JSONRPCResponse(
-                            id=rpc_request.id,
-                            result=task_result
-                        ), timeout=10)
+                        await client.post(webhook_url, json=response_payload, timeout=10)
                         print(f"Sent result to Telex webhook: {webhook_url}")
                     except Exception as e:
                         print(f"Failed to notify Telex: {e}")
