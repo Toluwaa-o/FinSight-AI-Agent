@@ -145,10 +145,10 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
         if hasattr(params.configuration, "pushNotificationConfig") and params.configuration.pushNotificationConfig:
             webhook_url = params.configuration.pushNotificationConfig.url
             if webhook_url:
-                response_payload = JSONRPCResponse(
-                    id=rpc_request.id,
-                    result=task_result
-                ).model_dump()
+                response_payload = {
+                    "id": rpc_request.id,
+                    "result": task_result
+                },
 
                 async with httpx.AsyncClient() as client:
                     try:
