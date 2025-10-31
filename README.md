@@ -30,7 +30,7 @@ Which performs better, Google or Amazon?
 
    ```bash
    git clone https://github.com/Toluwaa-o/FinSight-AI-Agent.git
-   cd business-comparison-agent
+   cd FinSight-AI-Agent
    ```
 
 2. **Install dependencies**
