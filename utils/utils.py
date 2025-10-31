@@ -88,6 +88,8 @@ def is_comparison_query(text: str) -> bool:
     """
 
     comparison_patterns = [
+        r"\bbetter\b",
+        r"\bworse\b",
         r"\bcompare\b",
         r"\bcomparing\b",
         r"\bcomparison\b",
@@ -113,44 +115,48 @@ def is_comparison_query(text: str) -> bool:
 
 
 def chat(client, model, message, history):
-    if not is_comparison_query(message):
-        return (
-            "This AI Agent is designed only for comparing two companies.\n\n"
-            "Example inputs:\n"
-            "- Compare Apple and Microsoft\n"
-            "- How does Tesla compare to Ford?\n"
-            "- Which is better, Google or Amazon?\n\n"
-            "Please rephrase your request to include two companies for comparison."
-        )
+    try:
+        if not is_comparison_query(message):
+            return (
+                "This AI Agent is designed only for comparing two companies.\n\n"
+                "Example inputs:\n"
+                "- Compare Apple and Microsoft\n"
+                "- How does Tesla compare to Ford?\n"
+                "- Which is better, Google or Amazon?\n\n"
+                "Please rephrase your request to include two companies for comparison."
+            )
 
-    messages = [{"role": "system", "content": system_prompt}]
-    messages.extend(history)
-    messages.append({"role": "user", "content": message})
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(history)
+        messages.append({"role": "user", "content": message})
 
-    done = False
-    while not done:
-        response = client.chat.completions.create(
-            model=model, messages=messages, tools=tools)
+        done = False
+        while not done:
+            response = client.chat.completions.create(
+                model=model, messages=messages, tools=tools
+            )
 
-        choice = response.choices[0]
-        finish_reason = choice.finish_reason
+            choice = response.choices[0]
+            finish_reason = choice.finish_reason
 
-        if finish_reason == 'tool_calls':
-            message_obj = choice.message
-            tool_calls = message_obj.tool_calls
+            if finish_reason == 'tool_calls':
+                message_obj = choice.message
+                tool_calls = message_obj.tool_calls
+                results = handle_tool_calls(tool_calls)
+                messages.append(message_obj)
+                messages.extend(results)
+            else:
+                done = True
+                assistant_message = choice.message
+                messages.append(assistant_message)
 
-            results = handle_tool_calls(tool_calls)
-            messages.append(message_obj)
-            messages.extend(results)
+                history.append({"role": "user", "content": message})
+                history.append(
+                    {"role": "assistant", "content": assistant_message.content}
+                )
 
-        else:
-            done = True
-            assistant_message = choice.message
-            messages.append(assistant_message)
+                print("\nTask complete.\n")
+                return assistant_message.content
 
-            history.append({"role": "user", "content": message})
-            history.append(
-                {"role": "assistant", "content": assistant_message.content})
-
-            print("\nTask complete.\n")
-            return assistant_message.content
+    except Exception as e:
+        return f"An error occurred while processing your request: {e}"
