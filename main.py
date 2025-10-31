@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from datetime import datetime
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
-from utils.utils import convert_history_to_a2a
+from utils.utils import convert_history_to_a2a, send_webhook_notification
 from utils.agent import FinancialAgent
 from utils.models import (
     JSONRPCRequest,
@@ -139,48 +139,7 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
         if hasattr(params.configuration, "pushNotificationConfig") and params.configuration.pushNotificationConfig:
             webhook_url = params.configuration.pushNotificationConfig.url
             if webhook_url:
-                response_payload = {
-                    "jsonrpc": "2.0",
-                    "id": rpc_request.id,
-                    "result": {
-                        "id": task_id,
-                        "contextId": context_id,
-                        "status": {
-                            "state": "completed",
-                            "message": {
-                                "kind": "message",
-                                "role": "agent",
-                                "parts": [{"kind": "text", "text": str(result_text)}],
-                                "messageId": str(uuid4()),
-                                "taskId": task_id,
-                            }
-                        },
-                        "artifacts": [],
-                        "history": [
-                            {
-                                "kind": "message",
-                                "role": "user",
-                                "parts": [{"kind": "text", "text": user_input}],
-                                "messageId": str(uuid4())
-                            },
-                            {
-                                "kind": "message",
-                                "role": "agent",
-                                "parts": [{"kind": "text", "text": str(result_text)}],
-                                "messageId": str(uuid4())
-                            }
-                        ]
-                    }
-                }
-
-                async with httpx.AsyncClient() as client:
-                    try:
-                        await client.post(webhook_url, json=response_payload, timeout=10)
-                        print(f"Sent result to Telex webhook: {webhook_url}")
-                    except Exception as e:
-                        print(f"Failed to notify Telex: {e}")
-
-                return {"status": "processing"}
+                await send_webhook_notification(webhook_url, task_result)
         else:
             return JSONRPCResponse(
                 id=rpc_request.id,

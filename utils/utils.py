@@ -1,9 +1,11 @@
 import yfinance as yf
 from .data import compare_companies_json, system_prompt
-from .models import A2AMessage, MessagePart
+from .models import A2AMessage, MessagePart, TaskResult
+from typing import Optional, Dict, Any
 import json
 import re
 from uuid import uuid4
+import httpx
 
 
 def compare_companies(ticker1: str, ticker2: str) -> dict:
@@ -182,3 +184,22 @@ def convert_history_to_a2a(history):
             )
         )
     return a2a_messages
+
+
+async def send_webhook_notification(
+    webhook_url: str,
+    result: TaskResult,
+    auth: Optional[Dict[str, Any]] = None
+):
+    """Send result to webhook URL"""
+    headers = {"Content-Type": "application/json"}
+
+    if auth and auth.get("schemes") == ["TelexApiKey"]:
+        headers["Authorization"] = f"Bearer {auth.get('credentials')}"
+
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            webhook_url,
+            json=result.model_dump(),
+            headers=headers
+        )
