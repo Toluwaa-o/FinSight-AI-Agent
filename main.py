@@ -13,7 +13,8 @@ from utils.models import (
     A2AMessage,
     MessagePart,
     MessageParams,
-    ExecuteParams
+    ExecuteParams,
+    MessageConfiguration
 )
 from uuid import uuid4
 
@@ -70,6 +71,10 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
             else:
                 params = rpc_request.params
 
+            if hasattr(params, "configuration"):
+                params.configuration.blocking = True
+            else:
+                params.configuration = MessageConfiguration(blocking=True)
             task_id = params.taskId or str(uuid4())
             context_id = params.contextId or str(uuid4())
 
