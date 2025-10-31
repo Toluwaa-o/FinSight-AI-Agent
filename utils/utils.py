@@ -87,7 +87,6 @@ def is_comparison_query(text: str) -> bool:
         bool: True if it seems to be a comparison query, False otherwise.
     """
 
-    # Common words and patterns indicating comparison intent
     comparison_patterns = [
         r"\bcompare\b",
         r"\bcomparing\b",
