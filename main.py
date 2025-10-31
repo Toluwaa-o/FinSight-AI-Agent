@@ -97,7 +97,9 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
                 }
             )
 
+        print(f"Starting agent communication, string: {user_input}")
         result_text = await agent.process_messages(user_input)
+        print(f"result: {result_text}")
         
         if isinstance(result_text, dict) and "error" in result_text:
             return JSONRPCResponse(

@@ -36,7 +36,7 @@ class FinancialAgent:
                 return "Error: Empty input provided. Please ask a question about financial comparison."
             
             result = chat(self.client, self.model, user_input, [])
-            
+            print(f"Agent communication finished: {result}")
             return result
             
         except Exception as e:
