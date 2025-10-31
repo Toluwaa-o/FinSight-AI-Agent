@@ -40,7 +40,7 @@ Which performs better, Google or Amazon?
    ```
 
 3. **Set up environment variables**
-   Create a `.env` file and add your OpenAI API key:
+   Create a `.env` file and add the following:
 
    ```env
    GOOGLE_API_KEY=your_api_key_here
