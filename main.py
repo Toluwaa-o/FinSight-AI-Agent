@@ -1,12 +1,13 @@
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
-from contextlib import asynccontextmanager
-from dotenv import load_dotenv
 import os
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from utils.agent import call_agent
+from dotenv import load_dotenv
+from utils.agent import FinancialAgent
 
 load_dotenv()
+
+agent = FinancialAgent()
 
 app = FastAPI(
     title="Financial Comparison Agent",
@@ -44,6 +45,7 @@ async def a2a_endpoint(request: Request):
     try:
         body = await request.json()
 
+        # Validate JSON-RPC format
         if body.get("jsonrpc") != "2.0" or "id" not in body:
             return JSONResponse(
                 status_code=400,
@@ -58,17 +60,21 @@ async def a2a_endpoint(request: Request):
             )
 
         rpc_request = JSONRPCRequest(**body)
-        user_input = None
 
+        user_input = None
         if rpc_request.method == "message/send":
-            user_input = rpc_request.params.get("message", {}).get("content")
+            message = rpc_request.params.get("message", {})
+            parts = message.get("parts", [])
+            if parts and parts[0].get("kind") == "text":
+                user_input = parts[0].get("text")
         elif rpc_request.method == "execute":
             user_input = rpc_request.params.get("input")
 
         if not user_input:
-            raise ValueError("Missing 'input' or 'message.content' in params")
+            raise ValueError(
+                "Missing 'input' or 'message.parts[0].text' in params")
 
-        result_text = call_agent(user_input)
+        result_text = await agent.process_messages(user_input)
 
         response = JSONRPCResponse(
             id=rpc_request.id,
