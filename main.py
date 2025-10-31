@@ -15,7 +15,6 @@ from utils.models import (
     MessagePart,
     MessageParams,
     ExecuteParams,
-    MessageConfiguration
 )
 from uuid import uuid4
 
@@ -55,11 +54,6 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
                 params = MessageParams(**rpc_request.params)
             else:
                 params = rpc_request.params
-
-            if hasattr(params, "configuration"):
-                params.configuration.blocking = True
-            else:
-                params.configuration = MessageConfiguration(blocking=True)
 
             print(f"params: {params}")
             message = params.message
@@ -146,9 +140,25 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
             webhook_url = params.configuration.pushNotificationConfig.url
             if webhook_url:
                 response_payload = {
+                    "jsonrpc": "2.0",
                     "id": rpc_request.id,
-                    "result": task_result
-                },
+                    "result": {
+                        "id": task_id,
+                        "contextId": context_id,
+                        "status": {
+                            "state": "completed",
+                            "message": {
+                                "kind": "message",
+                                "role": "agent",
+                                "parts": [{"kind": "text", "text": str(result_text)}],
+                                "messageId": str(uuid4()),
+                                "taskId": task_id,
+                            }
+                        },
+                        "artifacts": [],
+                        "history": []  # add your history here later
+                    }
+                }
 
                 async with httpx.AsyncClient() as client:
                     try:
@@ -157,10 +167,12 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
                     except Exception as e:
                         print(f"Failed to notify Telex: {e}")
 
-        return JSONRPCResponse(
-            id=rpc_request.id,
-            result=task_result
-        )
+                return {"status": "processing"}
+        else:
+            return JSONRPCResponse(
+                id=rpc_request.id,
+                result=task_result
+            )
 
     except ValueError as e:
         return JSONRPCResponse(
