@@ -46,12 +46,14 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
         context_id = None
         message_id = None
         
+        print("method: " + rpc_request.method)
         if rpc_request.method == "message/send":
             if not isinstance(rpc_request.params, MessageParams):
                 params = MessageParams(**rpc_request.params)
             else:
                 params = rpc_request.params
             
+            print(f"params: {params}")
             message = params.message
             message_id = message.messageId
             task_id = message.taskId or str(uuid4())
