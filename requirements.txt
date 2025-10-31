@@ -1,0 +1,5 @@
+yfinance>=0.2.66
+python-dotenv>=1.2.1
+openai>=2.6.0
+fastapi>=0.120.3
+pydantic>=2.12.3
