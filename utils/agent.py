@@ -35,9 +35,9 @@ class FinancialAgent:
             if not user_input or not user_input.strip() or not is_comparison_query(user_input):
                 return "Error: Empty input provided. Please ask a question about financial comparison."
             
-            result = chat(self.client, self.model, user_input, [])
+            result, history = chat(self.client, self.model, user_input, [])
             print(f"Agent communication finished: {result}")
-            return result
+            return result, history
             
         except Exception as e:
             error_msg = f"Error processing financial comparison: {str(e)}"

@@ -3,6 +3,7 @@ from fastapi import FastAPI, Request
 from datetime import datetime
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
+from utils.utils import convert_history_to_a2a
 from utils.agent import FinancialAgent
 from utils.models import (
     JSONRPCRequest,
@@ -45,40 +46,40 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
         task_id = None
         context_id = None
         message_id = None
-        
+
         print("method: " + rpc_request.method)
         if rpc_request.method == "message/send":
             if not isinstance(rpc_request.params, MessageParams):
                 params = MessageParams(**rpc_request.params)
             else:
                 params = rpc_request.params
-            
+
             print(f"params: {params}")
             message = params.message
             message_id = message.messageId
             task_id = message.taskId or str(uuid4())
-            
+
             for part in message.parts:
                 if part.kind == "text" and part.text:
                     user_input = part.text
                     break
-        
+
         elif rpc_request.method == "execute":
             if not isinstance(rpc_request.params, ExecuteParams):
                 params = ExecuteParams(**rpc_request.params)
             else:
                 params = rpc_request.params
-            
+
             task_id = params.taskId or str(uuid4())
             context_id = params.contextId or str(uuid4())
-            
+
             if params.messages:
                 last_message = params.messages[-1]
                 for part in last_message.parts:
                     if part.kind == "text" and part.text:
                         user_input = part.text
                         break
-        
+
         else:
             return JSONRPCResponse(
                 id=rpc_request.id,
@@ -98,9 +99,9 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
             )
 
         print(f"Starting agent communication, string: {user_input}")
-        result_text = await agent.process_messages(user_input)
+        result_text, history = await agent.process_messages(user_input)
         print(f"result: {result_text}")
-        
+
         if isinstance(result_text, dict) and "error" in result_text:
             return JSONRPCResponse(
                 id=rpc_request.id,
@@ -114,14 +115,14 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
         # Generate IDs if not provided
         context_id = context_id or str(uuid4())
         task_id = task_id or str(uuid4())
-        
+
         # Create response message
         response_message = A2AMessage(
             role="agent",
             parts=[MessagePart(kind="text", text=str(result_text))],
             taskId=task_id
         )
-        
+
         # Create task result
         task_result = TaskResult(
             id=task_id,
@@ -131,9 +132,9 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
                 message=response_message
             ),
             artifacts=[],
-            history=[]
+            history=convert_history_to_a2a(history)
         )
-        
+
         return JSONRPCResponse(
             id=rpc_request.id,
             result=task_result

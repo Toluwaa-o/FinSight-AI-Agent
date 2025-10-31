@@ -1,7 +1,9 @@
 import yfinance as yf
 from .data import compare_companies_json, system_prompt
+from .models import A2AMessage, MessagePart
 import json
 import re
+from uuid import uuid4
 
 
 def compare_companies(ticker1: str, ticker2: str) -> dict:
@@ -155,7 +157,28 @@ def chat(client, model, message, history):
                     {"role": "assistant", "content": assistant_message.content}
                 )
 
-                return assistant_message.content
+                return assistant_message.content, history
 
     except Exception as e:
         return f"An error occurred while processing your request: {e}"
+
+
+def convert_history_to_a2a(history):
+    """Convert history list into valid A2AMessage objects for JSON-RPC response."""
+    a2a_messages = []
+    for msg in history:
+        role = msg["role"]
+        if role == "assistant":
+            role = "agent"
+        elif role not in ["user", "agent", "system"]:
+            role = "system"
+
+        a2a_messages.append(
+            A2AMessage(
+                kind="message",
+                role=role,
+                parts=[MessagePart(kind="text", text=msg["content"])],
+                messageId=str(uuid4())
+            )
+        )
+    return a2a_messages
