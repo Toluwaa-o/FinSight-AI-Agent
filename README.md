@@ -29,7 +29,7 @@ Which performs better, Google or Amazon?
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/your-username/business-comparison-agent.git
+   git clone https://github.com/Toluwaa-o/FinSight-AI-Agent.git
    cd business-comparison-agent
    ```
 
@@ -43,7 +43,9 @@ Which performs better, Google or Amazon?
    Create a `.env` file and add your OpenAI API key:
 
    ```env
-   OPENAI_API_KEY=your_api_key_here
+   GOOGLE_API_KEY=your_api_key_here
+   BASE_URL=your_llm_base_url
+   MODEL=your_model_name
    ```
 
 4. **Run the app**
