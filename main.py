@@ -156,7 +156,20 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
                             }
                         },
                         "artifacts": [],
-                        "history": []  # add your history here later
+                        "history": [
+                            {
+                                "kind": "message",
+                                "role": "user",
+                                "parts": [{"kind": "text", "text": user_input}],
+                                "messageId": str(uuid4())
+                            },
+                            {
+                                "kind": "message",
+                                "role": "agent",
+                                "parts": [{"kind": "text", "text": str(result_text)}],
+                                "messageId": str(uuid4())
+                            }
+                        ]
                     }
                 }
 
