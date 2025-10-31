@@ -55,6 +55,11 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
             else:
                 params = rpc_request.params
 
+            if hasattr(params, "configuration"):
+                params.configuration.blocking = True
+            else:
+                params.configuration = MessageConfiguration(blocking=True)
+                
             print(f"params: {params}")
             message = params.message
             message_id = message.messageId
@@ -71,10 +76,6 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
             else:
                 params = rpc_request.params
 
-            if hasattr(params, "configuration"):
-                params.configuration.blocking = True
-            else:
-                params.configuration = MessageConfiguration(blocking=True)
             task_id = params.taskId or str(uuid4())
             context_id = params.contextId or str(uuid4())
 
