@@ -56,6 +56,41 @@ Which performs better, Google or Amazon?
 
 ---
 
+## API Endpoints
+
+### `GET /`
+
+Check that the server is running.
+
+```json
+{
+  "msg": "server running"
+}
+```
+
+### `POST /agent`
+
+Send a message to the FinSight Agent.
+The agent interprets the natural-language input, detects comparison intent, and retrieves relevant financial data.
+
+#### Example Request
+
+```json
+{
+  "message": "Compare Apple and Microsoft"
+}
+```
+
+#### Example Response
+
+```json
+{
+  "insight": "Summary:\nOverall, Apple shows stronger revenue growth..."
+}
+```
+
+---
+
 ## Example Output
 
 ```

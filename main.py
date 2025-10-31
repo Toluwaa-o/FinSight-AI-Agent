@@ -7,7 +7,7 @@ app = FastAPI()
 
 @app.get('/')
 def check_server():
-    return {"msg": "server running"}
+    return {"msg": "server running. use /agent to call agent"}
 
 class RequestBody(BaseModel):
     input: str
