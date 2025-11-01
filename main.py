@@ -152,15 +152,18 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
             webhook_url = params.configuration.pushNotificationConfig.url
             if webhook_url:
                 await send_webhook_notification(webhook_url, task_result)
+                print(f"✅ Sent result to Telex webhook: {webhook_url}")
+                # ✅ Always return a minimal success response to acknowledge receipt
                 return JSONRPCResponse(
                     id=rpc_request.id,
-                    result=task_result
+                    result={"status": "processing"}
                 )
         else:
             return JSONRPCResponse(
                 id=rpc_request.id,
                 result=task_result
             )
+
 
     except ValueError as e:
         return JSONRPCResponse(
