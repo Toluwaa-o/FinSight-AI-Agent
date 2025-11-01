@@ -1,14 +1,16 @@
 # models/a2a.py
 from pydantic import BaseModel, Field
-from typing import Literal, Optional, List, Dict, Any
+from typing import Literal, Optional, List, Dict, Any, Union
 from datetime import datetime
 from uuid import uuid4
+
 
 class MessagePart(BaseModel):
     kind: Literal["text", "data", "file"]
     text: Optional[str] = None
     data: Optional[Dict[str, Any]] = None
     file_url: Optional[str] = None
+
 
 class A2AMessage(BaseModel):
     kind: Literal["message"] = "message"
@@ -18,40 +20,71 @@ class A2AMessage(BaseModel):
     taskId: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
+
 class PushNotificationConfig(BaseModel):
     url: str
     token: Optional[str] = None
     authentication: Optional[Dict[str, Any]] = None
 
+
 class MessageConfiguration(BaseModel):
     blocking: bool = True
-    acceptedOutputModes: List[str] = ["text/plain", "image/png", "image/svg+xml"]
+    acceptedOutputModes: List[str] = [
+        "text/plain", "image/png", "image/svg+xml"]
     pushNotificationConfig: Optional[PushNotificationConfig] = None
 
+
+class TextPart(BaseModel):
+    kind: Literal["text"]
+    text: str
+
+
+class DataItem(BaseModel):
+    kind: str
+    text: Optional[str] = None
+
+
+class DataPart(BaseModel):
+    kind: Literal["data"]
+    data: List[DataItem]
+
+
+Part = Union[TextPart, DataPart]
+
+class Message(BaseModel):
+    kind: Literal["message"]
+    role: Literal["user", "assistant", "system"]
+    parts: List[Part]
+    messageId: Optional[str]
+
+
 class MessageParams(BaseModel):
-    message: A2AMessage
-    configuration: MessageConfiguration = Field(default_factory=MessageConfiguration)
+    message: Message
+
 
 class ExecuteParams(BaseModel):
-    contextId: Optional[str] = None
-    taskId: Optional[str] = None
-    messages: List[A2AMessage]
+    task: dict
+
 
 class JSONRPCRequest(BaseModel):
     jsonrpc: Literal["2.0"]
     id: str
     method: Literal["message/send", "execute"]
-    params: MessageParams | ExecuteParams
+    params: Union[MessageParams, ExecuteParams]
+
 
 class TaskStatus(BaseModel):
     state: Literal["working", "completed", "input-required", "failed"]
-    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = Field(
+        default_factory=lambda: datetime.utcnow().isoformat())
     message: Optional[A2AMessage] = None
+
 
 class Artifact(BaseModel):
     artifactId: str = Field(default_factory=lambda: str(uuid4()))
     name: str
     parts: List[MessagePart]
+
 
 class TaskResult(BaseModel):
     id: str
@@ -60,6 +93,7 @@ class TaskResult(BaseModel):
     artifacts: List[Artifact] = []
     history: List[A2AMessage] = []
     kind: Literal["task"] = "task"
+
 
 class JSONRPCResponse(BaseModel):
     jsonrpc: Literal["2.0"] = "2.0"
