@@ -58,12 +58,21 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
             print(f"params: {params}")
             message = params.message
             message_id = message.messageId
-            task_id = message.taskId or str(uuid4())
+            task_id = getattr(message, "taskId", None) or str(uuid4())
+
+            user_input = None
+            conversation_history = []
 
             for part in message.parts:
-                if part.kind == "text" and part.text:
+                if part.kind == "text" and getattr(part, "text", None):
                     user_input = part.text
-                    break
+                elif part.kind == "data" and getattr(part, "data", None):
+                    for data_item in part.data:
+                        if data_item.kind == "text" and getattr(data_item, "text", None):
+                            conversation_history.append(data_item.text)
+
+            print(f"user_input: {user_input}")
+            print(f"conversation_history: {conversation_history[:3]} ...")
 
         elif rpc_request.method == "execute":
             if not isinstance(rpc_request.params, ExecuteParams):
@@ -71,15 +80,18 @@ async def a2a_endpoint(rpc_request: JSONRPCRequest):
             else:
                 params = rpc_request.params
 
-            task_id = params.taskId or str(uuid4())
-            context_id = params.contextId or str(uuid4())
+            task_id = getattr(params, "taskId", None) or str(uuid4())
+            context_id = getattr(params, "contextId", None) or str(uuid4())
 
-            if params.messages:
+            user_input = None
+            if getattr(params, "messages", None):
                 last_message = params.messages[-1]
                 for part in last_message.parts:
-                    if part.kind == "text" and part.text:
+                    if part.kind == "text" and getattr(part, "text", None):
                         user_input = part.text
                         break
+
+            print(f"user_input: {user_input}")
 
         else:
             return JSONRPCResponse(
